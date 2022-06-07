@@ -21,6 +21,9 @@
     <!-- 합쳐지고 최소화된 최신 자바스크립트 -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
 
+    <script src="https://code.jquery.com/jquery-2.2.4.js" integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 
 </head>
 <body>
@@ -31,54 +34,79 @@
 <br>
 <label for="roomName" class="label label-default">방 이름</label>
 <label th:text="*{room.name}" id="roomName" class="form-inline"></label>
-<div id = "chatroom" style = "width:400px; height: 600px; border:1px solid; background-color : gray"></div>
+<div id = "space" style = "width:400px; height: 600px; border:1px solid; background-color : gray"></div>
 <input type = "text" id = "message" style = "height : 30px; width : 340px" placeholder="내용을 입력하세요" autofocus>
 <button class = "btn btn-primary" id = "send">전송</button>
-<script>
-
-</script>
+</div>
 </body>
 <script th:inline = "javascript">
-    var webSocket;
-    var nickname;
-    /* <![CDATA[*/
-    var roomId = /*[[${room.roomId}]]*/;
-    /* ]]> */
-    document.getElementById("name").addEventListener("click",function(){
-        nickname = document.getElementById("nickname").value;
-        document.getElementById("nickname").style.display = "none";
-        document.getElementById("name").style.display = "none";
-        connect();
-    })
-    document.getElementById("send").addEventListener("click",function(){
-        send();
-    })
-    function connect(){
-        webSocket = new WebSocket("ws://localhost:8080/chat");
-        webSocket.onopen = onOpen;
-        webSocket.onclose = onClose;
-        webSocket.onmessage = onMessage;
-    }
-    function disconnect(){
-        webSocket.send(JSON.stringify({chatRoomId : roomId,type:'LEAVE',writer:nickname}));
-        webSocket.close();
-    }
-    function send(){
-        msg = document.getElementById("message").value;
-        webSocket.send(JSON.stringify({chatRoomId : roomId,type:'CHAT',writer:nickname,message : msg}));
-        document.getElementById("message").value = "";
-    }
-    function onOpen(){
-        webSocket.send(JSON.stringify({chatRoomId : roomId,type:'ENTER',writer:nickname}));
-    }
-    function onMessage(e){
-        data = e.data;
-        chatroom = document.getElementById("chatroom");
-        chatroom.innerHTML = chatroom.innerHTML + "<br>" + data;
-    }
-    function onClose(){
-        disconnect();
-    }
+    $(document).ready(function(){
 
+
+        var roomName = [[${room.name}]];
+        var roomId = [[${room.roomId}]];
+        var nickname;
+
+        document.getElementById("name").addEventListener("click", function(){
+            nickname = document.getElementById("nickname").value;
+            document.getElementById("nickname").style.display="none";
+            document.getElementById("name").style.display="none";
+        })
+
+
+        console.log(roomName + ", " + roomId + ", " + nickname);
+
+        var sockJs = new SockJS("/chat");
+        //1. SockJS를 내부에 들고있는 stomp를 내어줌
+        var stomp = Stomp.over(sockJs);
+        stomp.connect({}, function (){
+            stomp.subscribe('/topic/' + roomId, function (e) {
+                showMessage(JSON.parse(e.body));
+            });
+        });
+
+        document.getElementById("send").addEventListener("click",function(){
+            var msg = document.getElementById("message");
+            var data = {'chatRoomId': roomId, receiver : roomId, writer: nickname, message: msg.value};
+            console.log(nickname + ":" + msg.value);
+            stomp.send("/app/chat/send", {}, JSON.stringify(data));
+            msg.value = '';
+        });
+
+
+        function showMessage(e) {
+            const space = document.getElementById("space");
+            if(e.writer == nickname){
+                space.innerHTML = "<div class='row'> <div class='col-lg-12'> <div class='media'> <div class='media-body'> <h4 class='media-heading'>" +
+                    e.writer + "</h4><h4 class='small pull-right'>방금</h4> </div> <p>" +
+                    e.message + "</p> </div> </div> </div> <hr>" + space.innerHTML;
+                return;
+            }
+            if(e.writer != nickname) {
+                space.innerHTML = "<div class='row'> <div class='col-lg-12'> <div class='media'> <div class='media-body'> <h4 class='media-heading'>" +
+                    e.writer + "</h4><h4 class='small pull-right'>방금</h4> </div> <p>" +
+                    e.message + "</p> </div> </div> </div> <hr>" + space.innerHTML;
+                return;
+            }
+        };
+
+        function disconnect() {
+            if (stomp !== null) {
+                stomp.disconnect();
+            }
+        }
+
+        window.onbeforeunload = function(e){
+            disconnect();
+        }
+
+        // function alertClosing(selector, delay){
+        //     console.log(selector);
+        //     document.getElementById(selector).style.display = "block";
+        //     window.setTimeout(function(){
+        //         document.getElementById(selector).style.display = "none";
+        //     },delay);
+        // }
+    });
 </script>
 </html>

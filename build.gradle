@@ -32,6 +32,8 @@ dependencies {
 	testImplementation 'org.springframework.kafka:spring-kafka-test'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	runtimeOnly 'org.postgresql:postgresql'
+	implementation 'org.webjars:sockjs-client:1.1.2'
+	implementation 'org.webjars:stomp-websocket:2.3.3-1'
 }
 
 tasks.named('test') {

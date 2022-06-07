@@ -23,8 +23,12 @@ public class WebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         log.info("메세지 전송 = {} : {}",session,message.getPayload());
         String msg = message.getPayload();
+
+        //json형태를 chatMessage 자바오브젝트 형태로 변환
         ChatMessage chatMessage = objectMapper.readValue(msg,ChatMessage.class);
+
         ChatRoom chatRoom = chatRoomRepository.findRoomById(chatMessage.getChatRoomId());
+
         chatRoom.handleMessage(session,chatMessage,objectMapper);
     }
 }
